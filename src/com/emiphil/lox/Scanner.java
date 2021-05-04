@@ -100,6 +100,8 @@ public class Scanner {
                 if (match('/')) {
                     // A comment goes until the end of the line.
                     while (peek() != '\n' && !isAtEnd()) advance();
+                } else if (match('*')) {
+                    blockComment();
                 } else {
                     addToken(SLASH);
                 }
@@ -124,6 +126,27 @@ public class Scanner {
                     Lox.error(line, "Unexpected character.");
                     break;
                 }
+        }
+    }
+
+    private void blockComment() {
+        int level = 0;
+        while (!isAtEnd()) {
+            if (isBlockCommentStart()) {
+                advance();
+                advance();
+                level++;
+            } else if (isBlockCommentEnd()) {
+                advance();
+                advance();
+                if (level == 0) {
+                    break;
+                }
+                level--;
+            } else {
+                if (peek() == '\n') line++;
+                advance();
+            }
         }
     }
 
@@ -197,6 +220,14 @@ public class Scanner {
 
     private boolean isAlphaNumeric(char c) {
         return isAlpha(c) || isDigit(c);
+    }
+
+    private boolean isBlockCommentStart() {
+        return peek() == '/' && peekNext() == '*';
+    }
+
+    private boolean isBlockCommentEnd() {
+        return peek() == '*' && peekNext() == '/';
     }
 
     private boolean isAtEnd() {
