@@ -2,10 +2,7 @@ package com.emiphil.lox;
 
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Random;
+import java.util.*;
 
 import static com.emiphil.lox.TokenType.*;
 
@@ -104,6 +101,7 @@ public class Parser {
 
     private List<Stmt> declaration() {
         try {
+            if (match(CLASS)) return classDeclaration();
             if (match(FUN)) return function("function");
             if (match(VAR)) return varDeclaration();
             return statement();
@@ -111,6 +109,19 @@ public class Parser {
             synchronize();
             return null;
         }
+    }
+
+    private List<Stmt> classDeclaration() {
+        Token name = consume(IDENTIFIER, "Expect class name");
+        consume(LEFT_BRACE, "Expect '{' before class body");
+
+        List<Stmt.Function> methods = new ArrayList<>();
+        while (!check(RIGHT_BRACE) && !isAtEnd()) {
+            methods.add((Stmt.Function) function("method").get(0));
+        }
+
+        consume(RIGHT_BRACE, "Expect '}' after class body.");
+        return asList(new Stmt.Class(name, methods));
     }
 
     private List<Stmt> varDeclaration() {
@@ -336,6 +347,9 @@ public class Parser {
             if (expr instanceof Expr.Variable) {
                 Token name = ((Expr.Variable) expr).name;
                 return new Expr.Assign(name, value);
+            } else if (expr instanceof Expr.Get) {
+                Expr.Get get = (Expr.Get) expr;
+                return new Expr.Set(get.object, get.name, value);
             }
 
             //noinspection ThrowableNotThrown
@@ -385,6 +399,9 @@ public class Parser {
         while (true) {
            if (match(LEFT_PAREN)) {
                expr = finishCall(expr);
+           } else if (match(DOT)) {
+               Token name = consume(IDENTIFIER, "Expect property name after '.'.");
+               expr = new Expr.Get(expr, name);
            } else {
                break;
            }
@@ -419,6 +436,10 @@ public class Parser {
 
         if (match(NUMBER, STRING)) {
             return new Expr.Literal(previous().literal);
+        }
+
+        if (match(THIS)) {
+            return new Expr.This(previous());
         }
 
         if (match(IDENTIFIER)) {
